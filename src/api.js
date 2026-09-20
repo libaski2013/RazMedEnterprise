@@ -1,0 +1,176 @@
+const BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:4000/api');
+const responseCache = new Map();
+const inflight = new Map();
+const CACHE_MS = 30000;
+
+function getToken() {
+  return localStorage.getItem('razmed_token');
+}
+
+export function setToken(token) {
+  responseCache.clear(); inflight.clear();
+  if (token) localStorage.setItem('razmed_token', token);
+  else localStorage.removeItem('razmed_token');
+}
+
+async function request(path, { method = 'GET', body } = {}) {
+  const cacheKey = `${getToken() || 'guest'}:${path}`;
+  if (method === 'GET') {
+    const cached = responseCache.get(cacheKey);
+    if (cached && Date.now() - cached.at < CACHE_MS) return cached.data;
+    if (inflight.has(cacheKey)) return inflight.get(cacheKey);
+  } else {
+    responseCache.clear();
+  }
+  const perform = async () => {
+  const headers = body ? { 'Content-Type': 'application/json' } : {};
+  const token = getToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  if (!res.ok) {
+    let message = `Request failed (${res.status})`;
+    try {
+      const data = await res.json();
+      if (data?.error) message = data.error;
+    } catch {}
+    throw new Error(message);
+  }
+  if (res.status === 204) return null;
+  const data = await res.json();
+  if (method === 'GET') responseCache.set(cacheKey, { at: Date.now(), data });
+  return data;
+  };
+  const promise = perform();
+  if (method === 'GET') inflight.set(cacheKey, promise);
+  try { return await promise; } finally { if (method === 'GET') inflight.delete(cacheKey); }
+}
+
+async function requestBlob(path) {
+  const headers = {}; const token = getToken(); if (token) headers.Authorization = `Bearer ${token}`;
+  const res = await fetch(`${BASE_URL}${path}`, { headers });
+  if (!res.ok) { let message=`Request failed (${res.status})`; try { const data=await res.json(); if(data?.error)message=data.error; } catch {} throw new Error(message); }
+  return res.blob();
+}
+
+export const api = {
+  login: (username, password) => request('/auth/login', { method: 'POST', body: { username, password } }),
+  me: () => request('/auth/me'),
+  logout: () => request('/auth/logout', { method: 'POST' }),
+  heartbeat: () => request('/sessions/heartbeat', { method: 'POST' }),
+  serverTime: () => request('/time'),
+
+  dashboard: (params = {}) => { const qs = new URLSearchParams(params).toString(); return request(`/dashboard${qs ? `?${qs}` : ''}`); },
+  storeProducts: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return request(`/store/products${qs ? `?${qs}` : ''}`);
+  },
+  branches: () => request('/branches'),
+  users: () => request('/users'),
+  superAdminStatus: () => request('/users/super-admin-status'),
+  createBranch: body => request('/branches', { method: 'POST', body }),
+  updateBranch: (id, body) => request(`/branches/${id}`, { method: 'PATCH', body }),
+  deleteBranch: id => request(`/branches/${id}`, { method: 'DELETE' }),
+  outlets: () => request('/outlets'),
+  createOutlet: body => request('/outlets', { method: 'POST', body }),
+  updateOutlet: (id, body) => request(`/outlets/${id}`, { method: 'PATCH', body }),
+  permissions: () => request('/permissions'),
+  createUser: body => request('/users', { method: 'POST', body }),
+  updateUser: (id, body) => request(`/users/${id}`, { method: 'PATCH', body }),
+  updateMyProfile: body => request('/users/me/profile', { method: 'PATCH', body }),
+  taxFilings: () => request('/tax-filings'),
+  createTaxFiling: body => request('/tax-filings', { method: 'POST', body }),
+  updateTaxFiling: (id, body) => request(`/tax-filings/${id}`, { method: 'PATCH', body }),
+
+  products: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return request(`/products${qs ? `?${qs}` : ''}`);
+  },
+  updateProduct: (id, body) => request(`/products/${id}`, { method: 'PATCH', body }),
+  createProduct: body => request('/products', { method: 'POST', body }),
+  deleteProduct: id => request(`/products/${id}`, { method: 'DELETE' }),
+  deleteProducts: ids => request('/products/bulk-archive', { method: 'POST', body: { ids } }),
+  scanProduct: code => request(`/products/scan/${encodeURIComponent(code)}`),
+  receiveProductStock: (id, body) => request(`/products/${id}/stock`, { method: 'POST', body }),
+  stockMovements: () => request('/stock-movements'),
+  priceAdjustmentPreview: body => request('/products/price-adjust/preview', { method: 'POST', body }),
+  applyPriceAdjustment: body => request('/products/price-adjust', { method: 'POST', body }),
+  priceAdjustments: () => request('/price-adjustments'),
+
+  customers: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return request(`/customers${qs ? `?${qs}` : ''}`);
+  },
+  createCustomer: body => request('/customers', { method: 'POST', body }),
+  updateCustomer: (id, body) => request(`/customers/${id}`, { method: 'PATCH', body }),
+  deleteCustomer: id => request(`/customers/${id}`, { method: 'DELETE' }),
+  customerStatement: (id, params = {}) => { const qs = new URLSearchParams(params).toString(); return request(`/customers/${id}/statement${qs ? `?${qs}` : ''}`); },
+  receiveCustomerPayment: (id, body) => request(`/customers/${id}/payments`, { method: 'POST', body }),
+
+  suppliers: () => request('/suppliers'),
+
+  purchaseOrders: () => request('/purchase-orders'),
+  createPurchaseOrder: (body) => request('/purchase-orders', { method: 'POST', body }),
+  updatePurchaseOrder: (id, body) => request(`/purchase-orders/${id}`, { method: 'PATCH', body }),
+
+  sales: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return request(`/sales${qs ? `?${qs}` : ''}`);
+  },
+  createSale: (body) => request('/sales', { method: 'POST', body }),
+
+  expenses: () => request('/expenses'),
+  createExpense: (body) => request('/expenses', { method: 'POST', body }),
+  updateExpense: (id, body) => request(`/expenses/${id}`, { method: 'PATCH', body }),
+
+  approvals: () => request('/approvals'),
+  updateApproval: (id, body) => request(`/approvals/${id}`, { method: 'PATCH', body }),
+  journals: () => request('/accounting/journals'),
+  createJournal: (body) => request('/accounting/journals', { method: 'POST', body }),
+  fuelOverview: () => request('/fuel/overview'),
+  createFuelTank: body => request('/fuel/tanks', { method: 'POST', body }),
+  createFuelPump: body => request('/fuel/pumps', { method: 'POST', body }),
+  openFuelShift: body => request('/fuel/shifts/open', { method: 'POST', body }),
+  closeFuelShift: (id, body) => request(`/fuel/shifts/${id}/close`, { method: 'PATCH', body }),
+  reviewFuelShift: (id, body) => request(`/fuel/shifts/${id}/review`, { method: 'PATCH', body }),
+  createFuelDip: body => request('/fuel/dips', { method: 'POST', body }),
+  reviewFuelDip: (id, body) => request(`/fuel/dips/${id}/review`, { method: 'PATCH', body }),
+  createFuelDelivery: body => request('/fuel/deliveries', { method: 'POST', body }),
+  financialAnalytics: (params = {}) => { const qs = new URLSearchParams(params).toString(); return request(`/analytics/financial${qs ? `?${qs}` : ''}`); },
+  reconciliations: () => request('/reconciliations'),
+  prepareReconciliation: params => request(`/reconciliations/prepare?${new URLSearchParams(params)}`),
+  createReconciliation: body => request('/reconciliations', { method: 'POST', body }),
+  reviewReconciliation: (id, body) => request(`/reconciliations/${id}`, { method: 'PATCH', body }),
+  siteContent: () => request('/site/content'),
+  updateSiteContent: body => request('/site/content', { method: 'PATCH', body }),
+  payrollEmployees: () => request('/payroll/employees'),
+  updatePayrollEmployee: (id, body) => request(`/payroll/employees/${id}`, { method: 'PATCH', body }),
+  payrollRuns: () => request('/payroll/runs'),
+  createPayrollRun: body => request('/payroll/runs', { method: 'POST', body }),
+  updatePayrollRun: (id, body) => request(`/payroll/runs/${id}`, { method: 'PATCH', body }),
+  smsCampaigns: () => request('/sms/campaigns'),
+  createSmsCampaign: body => request('/sms/campaigns', { method: 'POST', body }),
+  currencyConvert: params => request(`/tools/currency?${new URLSearchParams(params)}`),
+  backupJson: () => request('/data/backup'),
+  exportExcel: () => requestBlob('/data/export.xlsx'),
+  restoreJson: body => request('/data/restore', { method: 'POST', body }),
+  importExcel: body => request('/data/import.xlsx', { method: 'POST', body }),
+  dataAudit: () => request('/data/audit'),
+  performance: params => request(`/performance?${new URLSearchParams(params)}`),
+  createReward: body => request('/performance/rewards', { method: 'POST', body }),
+  updateReward: (id, body) => request(`/performance/rewards/${id}`, { method: 'PATCH', body }),
+  activeSessions: () => request('/attendance/active'),
+  attendanceHistory: (days = 7) => request(`/attendance/history?days=${days}`),
+  shiftSchedules: () => request('/shift-schedules'),
+  createShiftSchedule: body => request('/shift-schedules', { method: 'POST', body }),
+  updateShiftSchedule: (id, body) => request(`/shift-schedules/${id}`, { method: 'PATCH', body }),
+  workShifts: () => request('/work-shifts'),
+  startWorkShift: body => request('/work-shifts/start', { method: 'POST', body }),
+  closeWorkShift: (id, body) => request(`/work-shifts/${id}/close`, { method: 'PATCH', body }),
+  reviewWorkShift: (id, body) => request(`/work-shifts/${id}/review`, { method: 'PATCH', body }),
+};

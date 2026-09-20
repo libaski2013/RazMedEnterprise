@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">RazMed Enterprise</string>
+    <string name="title_activity_main">RazMed Enterprise</string>
+    <string name="package_name">com.razmedenterprise.app</string>
+    <string name="custom_url_scheme">com.razmedenterprise.app</string>
+</resources>

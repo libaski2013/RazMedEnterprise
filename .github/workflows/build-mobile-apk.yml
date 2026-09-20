@@ -1,0 +1,59 @@
+name: Build RazMed Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'mobile-app/**'
+      - '.github/workflows/build-mobile-apk.yml'
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: mobile-app/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install mobile dependencies
+        working-directory: mobile-app
+        run: npm install
+      - name: Build mobile web assets
+        working-directory: mobile-app
+        env:
+          VITE_API_URL: https://api.razmed.example/api
+        run: npm run build
+      - name: Generate and sync Android project
+        working-directory: mobile-app
+        run: |
+          npx cap add android
+          npx cap sync android
+          sed -i 's/versionCode 1/versionCode 12/' android/app/build.gradle
+          sed -i 's/versionName "1.0"/versionName "1.2.0"/' android/app/build.gradle
+          for spec in mdpi:48 hdpi:72 xhdpi:96 xxhdpi:144 xxxhdpi:192; do
+            density=${spec%%:*}; size=${spec##*:}
+            cp android-icons/icon-${size}.png android/app/src/main/res/mipmap-${density}/ic_launcher.png
+            cp android/app/src/main/res/mipmap-${density}/ic_launcher.png android/app/src/main/res/mipmap-${density}/ic_launcher_round.png
+            cp android/app/src/main/res/mipmap-${density}/ic_launcher.png android/app/src/main/res/mipmap-${density}/ic_launcher_foreground.png
+          done
+      - name: Build debug APK
+        working-directory: mobile-app/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+      - name: Name APK
+        run: cp mobile-app/android/app/build/outputs/apk/debug/app-debug.apk RazMed-Enterprise-Mobile.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RazMed-Enterprise-APK
+          path: RazMed-Enterprise-Mobile.apk
+          if-no-files-found: error
+          retention-days: 30
