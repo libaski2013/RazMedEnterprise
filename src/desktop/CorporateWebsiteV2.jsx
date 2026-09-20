@@ -33,7 +33,7 @@ export default function CorporateWebsiteV2(){
   const openPortal=()=>{sessionStorage.setItem('razmed_staff_portal','true');setPortal(true)},closePortal=()=>{sessionStorage.setItem('razmed_staff_portal','false');setPortal(false)};
   const add=p=>setCart(a=>{const f=a.find(i=>i.id===p.id);return f?a.map(i=>i.id===p.id?{...i,qty:i.qty+1}:i):[...a,{...p,qty:1}]});
   const qty=cart.reduce((s,i)=>s+i.qty,0),total=cart.reduce((s,i)=>s+i.price*i.qty,0);
-  if(portal)return <div className="relative"><button onClick={closePortal} className="fixed z-[70] top-4 left-4 px-4 py-2.5 rounded-full bg-white border text-xs font-black shadow-xl">← Public website</button><DesktopApp/></div>;
+  if(portal)return <div className="relative"><button onClick={closePortal} className="fixed z-[70] top-4 left-4 px-4 py-2.5 rounded-full bg-white border-2 border-slate-300 text-slate-950 text-xs font-black shadow-xl hover:bg-orange-50 hover:border-orange-500 hover:text-orange-700 transition-colors">← Public website</button><DesktopApp/></div>;
   const categories=[['Tyres',CircleDot,'Grip for every road'],['Rims',Gauge,'Style with strength'],['Batteries',BatteryCharging,'Dependable starts'],['Oil & Lubricants',Sparkles,'Protect every engine']];
 
   return <div className="razmed-interactive min-h-screen bg-[#f7f5f0] text-[#17191d]" style={{fontFamily:'Arial,Helvetica,sans-serif'}}>
