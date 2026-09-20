@@ -2,7 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App.jsx';
 import './mobile.css';
-import CorporateWebsite from './desktop/CorporateWebsite.jsx';
+import CorporateWebsite from './desktop/CorporateWebsiteV2.jsx';
 
 const BREAKPOINT = 880;
 
