@@ -1,4 +1,4 @@
-Warning: truncated output (original token count: 53461)
+Warning: truncated output (original token count: 53473)
 Total output lines: 1223
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -203,12 +203,12 @@ function LoginScreen({ onLogin }) {
         </div>
         <div className="bg-white/10 backdrop-blur border border-white/15 rounded-2xl p-6 space-y-4 shadow-2xl">
           <div>
-            <label className="block text-xs font-bold text-orange-300 tracking-wide mb-1">USERNAME</label>
-            <input value={u} onChange={e => setU(e.target.value)} className="w-full bg-white bg-opacity-10 border border-white border-opacity-20 rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:border-opacity-50" />
+            <label className="block text-center text-xs font-bold text-orange-300 tracking-wide mb-1">USERNAME</label>
+            <input value={u} onChange={e => setU(e.target.value)} className="w-full bg-white bg-opacity-10 border border-white border-opacity-20 rounded-xl px-3 py-2.5 text-center text-sm text-white outline-none focus:border-opacity-50" />
           </div>
           <div>
-            <label className="block text-xs font-bold text-orange-300 tracking-wide mb-1">PASSWORD</label>
-            <div className="relative"><input type={showPassword ? 'text' : 'password'} value={p} onChange={e => setP(e.target.value)} onKeyDown={e => e.key === 'Enter' && submit()} className="w-full bg-white bg-opacity-10 border border-white border-opacity-20 rounded-xl pl-3 pr-11 py-2.5 text-sm text-white outline-none focus:border-opacity-50" /><button type="button" onClick={()=>setShowPassword(v=>!v)} aria-label={showPassword?'Hide password':'Show password'} title={showPassword?'Hide password':'Show password'} className="absolute inset-y-0 right-0 px-3 text-orange-200 hover:text-white">{showPassword?<EyeOff size={17}/>:<Eye size={17}/>}</button></div>
+            <label className="block text-center text-xs font-bold text-orange-300 tracking-wide mb-1">PASSWORD</label>
+            <div className="relative"><input type={showPassword ? 'text' : 'password'} value={p} onChange={e => setP(e.target.value)} onKeyDown={e => e.key === 'Enter' && submit()} className="w-full bg-white bg-opacity-10 border border-white border-opacity-20 rounded-xl pl-11 pr-11 py-2.5 text-center text-sm text-white outline-none focus:border-opacity-50" /><button type="button" onClick={()=>setShowPassword(v=>!v)} aria-label={showPassword?'Hide password':'Show password'} title={showPassword?'Hide password':'Show password'} className="absolute inset-y-0 right-0 px-3 text-orange-200 hover:text-white">{showPassword?<EyeOff size={17}/>:<Eye size={17}/>}</button></div>
           </div>
           {err && <p className="text-center text-red-300 text-xs font-semibold">⚠ {err}</p>}
           <button onClick={submit} disabled={loading} className="w-full py-3 bg-orange-600 hover:bg-red-700 disabled:opacity-50 rounded-xl text-white font-black text-sm flex items-center justify-center gap-2">
@@ -779,7 +779,7 @@ function CustView({ user }) {
                   ))}
                 </div>
               </div>
-              <div className="bg-white border rounded-xl mt-3 p-4 space-y-3"><div className="flex flex-wrap justify-between gap-2"><div><h4 className="font-black text-slate-950">Customer Account Statement</h4><p className="text-xs text-gray-400">Purchases,…3461 tokens truncated…button className="w-full py-3 bg-slate-900 text-white rounded-xl font-black">Save tax record</button></form></Modal>}</div>;
+              <div className="bg-white border rounded-xl mt-3 p-4 space-y-3"><div className="flex flex-wrap justify-between gap-2"><div><h4 className="font-black text-slate-950">Customer Account Statement</h…3473 tokens truncated…button className="w-full py-3 bg-slate-900 text-white rounded-xl font-black">Save tax record</button></form></Modal>}</div>;
 }
 
 function FinView({user}) {
