@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 53473)
-Total output lines: 1223
-
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -779,7 +776,69 @@ function CustView({ user }) {
                   ))}
                 </div>
               </div>
-              <div className="bg-white border rounded-xl mt-3 p-4 space-y-3"><div className="flex flex-wrap justify-between gap-2"><div><h4 className="font-black text-slate-950">Customer Account Statement</h…3473 tokens truncated…button className="w-full py-3 bg-slate-900 text-white rounded-xl font-black">Save tax record</button></form></Modal>}</div>;
+              <div className="bg-white border rounded-xl mt-3 p-4 space-y-3"><div className="flex flex-wrap justify-between gap-2"><div><h4 className="font-black text-slate-950">Customer Account Statement</h4><p className="text-xs text-gray-400">Purchases, credit invoices, payments and balances</p></div><div className="flex gap-2"><button onClick={()=>window.print()} className="border rounded-lg px-3 py-2 text-xs font-bold"><Printer size={13} className="inline mr-1"/>Print</button><button onClick={loadStatement} className="bg-slate-900 text-white rounded-lg px-3 py-2 text-xs font-bold">Apply filters</button></div></div><div className="grid grid-cols-2 md:grid-cols-4 gap-2"><input type="date" value={statementFilters.start} onChange={e=>setStatementFilters({...statementFilters,start:e.target.value})} className="border rounded-lg p-2 text-xs"/><input type="date" value={statementFilters.end} onChange={e=>setStatementFilters({...statementFilters,end:e.target.value})} className="border rounded-lg p-2 text-xs"/><select value={statementFilters.branch} onChange={e=>setStatementFilters({...statementFilters,branch:e.target.value,outlet:''})} className="border rounded-lg p-2 text-xs bg-white"><option value="">All branches</option>{branches.map(b=><option key={b._id} value={b._id}>{b.name}</option>)}</select><select value={statementFilters.outlet} onChange={e=>setStatementFilters({...statementFilters,outlet:e.target.value})} className="border rounded-lg p-2 text-xs bg-white"><option value="">All outlets</option>{outlets.filter(o=>!statementFilters.branch||(o.branch?._id||o.branch)===statementFilters.branch).map(o=><option key={o._id} value={o._id}>{o.name}</option>)}</select></div>{statement&&<><div className="grid grid-cols-2 md:grid-cols-4 gap-2">{[['Purchases',statement.summary.purchases],['Purchased',fmt(statement.summary.purchaseTotal)],['Payments',fmt(statement.summary.paymentsReceived)],['Balance Due',fmt(statement.summary.balance)]].map(([k,v])=><div key={k} className="bg-gray-50 rounded-lg p-2"><p className="text-xs text-gray-400">{k}</p><b className="text-sm">{v}</b></div>)}</div><div className="overflow-x-auto max-h-64"><table className="w-full text-xs"><thead className="bg-gray-50 sticky top-0"><tr>{['Date / Reference','Location','Products / Prices','Debt','Payment','Balance Due'].map(h=><th key={h} className="p-2 text-left">{h}</th>)}</tr></thead><tbody className="divide-y">{statement.purchases.map(x=><tr key={x._id}><td className="p-2">{new Date(x.createdAt).toLocaleDateString()}<br/><b>{x.invoiceNumber}</b></td><td className="p-2">{x.branch?.name||'—'} / {x.outlet?.name||'—'}</td><td className="p-2 min-w-56">{(x.items||[]).map((item,index)=><div key={index}>{item.name} ×{item.qty}{x.legacySource?.itemPricing==='allocated_from_transaction_total'?<b className="text-orange-600"> — Price requires verification</b>:<> @ {fmt(item.price)} = <b>{fmt(Number(item.price||0)*Number(item.qty||0))}</b></>}</div>)}{!(x.items||[]).length&&(x.legacySource?.itemPricing==='allocated_from_transaction_total'?'Historical product prices require verification':x.legacySource?.itemPricing||'Product details unavailable')}</td><td className="p-2">{fmt(x.total)}</td><td className="p-2 text-green-700">{fmt(x.paidAtSale+x.paidLater)}</td><td className="p-2 font-black text-orange-600">{fmt(x.amountDue)}</td></tr>)}{statement.payments.map(x=><tr key={x._id} className="bg-green-50"><td className="p-2">{new Date(x.receivedAt).toLocaleDateString()}<br/><b>{x.receiptNumber}</b></td><td className="p-2">{x.method} · {x.reference||'No reference'}</td><td className="p-2">Customer payment</td><td className="p-2">—</td><td className="p-2 font-black text-green-700">{fmt(x.amount)}</td><td className="p-2">—</td></tr>)}</tbody></table></div></>}</div>
+            </div>
+          )}
+        </div>
+      )}
+      {modal&&<Modal title={modal==='new'?'Add Customer':'Edit Customer'} onClose={()=>setModal(null)}><form onSubmit={save} className="space-y-3">{[['name','Full / company name'],['phone','Phone'],['email','Email'],['address','Customer address']].map(([k,l])=><label key={k} className="block text-xs font-bold text-gray-500">{l}<input required={k==='name'} value={form[k]||''} onChange={e=>setForm({...form,[k]:e.target.value})} className="mt-1 w-full border rounded-xl p-2.5"/></label>)}<label className="block text-xs font-bold text-gray-500">Customer type<select value={form.type||'Retail'} onChange={e=>setForm({...form,type:e.target.value})} className="mt-1 w-full border rounded-xl p-2.5 bg-white">{['Retail','Fleet','Corporate'].map(x=><option key={x}>{x}</option>)}</select></label><div className="grid grid-cols-2 gap-3"><label className="text-xs font-bold text-gray-500">Branch<select value={form.branch||''} onChange={e=>setForm({...form,branch:e.target.value,outlet:''})} className="mt-1 w-full border rounded-xl p-2.5 bg-white"><option value="">Unassigned</option>{branches.map(b=><option key={b._id} value={b._id}>{b.name}</option>)}</select></label><label className="text-xs font-bold text-gray-500">Outlet<select value={form.outlet||''} onChange={e=>setForm({...form,outlet:e.target.value})} className="mt-1 w-full border rounded-xl p-2.5 bg-white"><option value="">Branch level</option>{outlets.filter(o=>!form.branch||(o.branch?._id||o.branch)===form.branch).map(o=><option key={o._id} value={o._id}>{o.name}</option>)}</select></label></div><button className="w-full py-3 bg-orange-600 text-white font-black rounded-xl">Save customer</button></form></Modal>}
+      {payment&&sel&&<Modal title={`Receive Payment — ${sel.name}`} onClose={()=>setPayment(null)}><form onSubmit={async e=>{e.preventDefault();try{await api.receiveCustomerPayment(sel._id,{...payment,amount:Number(payment.amount),branch:sel.branch?._id||sel.branch,outlet:sel.outlet?._id||sel.outlet});setPayment(null);await load();await loadStatement()}catch(x){setErr(x.message)}}} className="space-y-3"><div className="bg-red-50 rounded-xl p-3"><p className="text-xs text-red-700">Outstanding balance</p><p className="text-xl font-black text-red-700">{fmt(sel.balance)}</p></div><label className="block text-xs font-bold">Amount received<input autoFocus required type="number" min="0.01" max={sel.balance} step="0.01" value={payment.amount} onChange={e=>setPayment({...payment,amount:e.target.value})} className="mt-1 w-full border rounded-xl p-2.5"/></label><label className="block text-xs font-bold">Payment method<select value={payment.method} onChange={e=>setPayment({...payment,method:e.target.value})} className="mt-1 w-full border rounded-xl p-2.5 bg-white">{['Cash','Card','Mobile Money','Bank Transfer','Cheque'].map(x=><option key={x}>{x}</option>)}</select></label><label className="block text-xs font-bold">Reference<input value={payment.reference} onChange={e=>setPayment({...payment,reference:e.target.value})} className="mt-1 w-full border rounded-xl p-2.5"/></label><label className="block text-xs font-bold">Notes<textarea value={payment.notes} onChange={e=>setPayment({...payment,notes:e.target.value})} className="mt-1 w-full border rounded-xl p-2.5"/></label><button className="w-full py-3 bg-green-600 text-white rounded-xl font-black">Post payment and generate receipt</button></form></Modal>}
+    </div>
+  );
+}
+
+// ─── APPROVALS ───
+function ApprovalsView({ onChanged }) {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(null);
+  const load = () => api.approvals().then(setItems).catch(() => {}).finally(() => setLoading(false));
+  useEffect(() => { load(); }, []);
+  const act = (id, status) => { setBusy(id); api.updateApproval(id, { status }).then(() => { load(); onChanged && onChanged(); }).finally(() => setBusy(null)); };
+  const pending = items.filter(i => i.status === 'pending');
+
+  return (
+    <div className="space-y-5">
+      <div><h2 className="text-xl font-black text-slate-900">Approvals</h2><p className="text-sm text-gray-500">Review and authorise pending requests</p></div>
+      <div className="grid grid-cols-3 gap-3">
+        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-center"><p className="text-2xl font-black text-yellow-700">{pending.length}</p><p className="text-xs font-bold text-yellow-600">Awaiting</p></div>
+        <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center"><p className="text-2xl font-black text-green-700">{items.filter(i => i.status === 'approved').length}</p><p className="text-xs font-bold text-green-600">Approved</p></div>
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-center"><p className="text-2xl font-black text-red-700">{items.filter(i => i.status === 'rejected').length}</p><p className="text-xs font-bold text-orange-600">Rejected</p></div>
+      </div>
+      {loading ? <p className="text-xs text-gray-400">Loading…</p> : (
+        <div className="space-y-3">
+          {items.map(item => (
+            <div key={item._id} className={`bg-white rounded-xl border shadow-sm p-4 ${item.status === 'pending' ? 'border-yellow-200' : 'border-gray-100'}`}>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2 mb-2"><Bd label={item.type} v="blue" /><Bd label={item.priority} v={item.priority === 'high' ? 'red' : item.priority === 'medium' ? 'orange' : 'gray'} /><Bd label={item.status} v={item.status === 'approved' ? 'green' : item.status === 'rejected' ? 'red' : 'yellow'} /></div>
+                  <p className="text-sm font-bold text-gray-800">{item.description}</p>
+                  <p className="text-xs text-gray-400 mt-1">{item.requestedBy} · {new Date(item.createdAt).toLocaleDateString()} · <span className="font-bold text-gray-700">{fmt(item.amount)}</span></p>
+                </div>
+                {item.status === 'pending' ? (
+                  <div className="flex gap-2 flex-shrink-0">
+                    <button disabled={busy === item._id} onClick={() => act(item._id, 'rejected')} className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-red-200 bg-red-50 text-orange-600 text-xs font-bold"><XCircle size={12} /> Reject</button>
+                    <button disabled={busy === item._id} onClick={() => act(item._id, 'approved')} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold"><Check size={12} /> Approve</button>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── FINANCE ───
+function AnnualTaxPanel({user}) {
+  const [records,setRecords]=useState([]),[form,setForm]=useState(null),[err,setErr]=useState('');
+  const canEdit=['super_admin','ceo'].includes(user?.role)||(user?.permissions||[]).includes('tax.manage');
+  const load=()=>api.taxFilings().then(setRecords).catch(e=>setErr(e.message));
+  useEffect(()=>{load()},[]);
+  const edit=r=>setForm(r?{...r,taxRate:+(r.taxRate*100).toFixed(2),filingDueDate:r.filingDueDate?.slice(0,10)}:{year:new Date().getFullYear(),taxableIncome:0,taxRate:25,amountPaid:0,filingDueDate:`${new Date().getFullYear()+1}-04-30`,status:'draft'});
+  const save=async e=>{e.preventDefault();try{const body={...form,taxRate:Number(form.taxRate)/100};form._id?await api.updateTaxFiling(form._id,body):await api.createTaxFiling(body);setForm(null);load()}catch(x){setErr(x.message)}};
+  return <div className="bg-white border rounded-xl p-5 space-y-3"><div className="flex justify-between gap-3"><div><h3 className="font-black text-slate-950">Annual Company Tax Filing</h3><p className="text-xs text-gray-500">Prepare, review, file and record annual company-tax payments.</p></div>{canEdit&&<button onClick={()=>edit()} className="px-3 py-2 bg-orange-600 text-white rounded-xl text-xs font-black">+ Tax Year</button>}</div>{err&&<p className="text-xs text-orange-600">⚠ {err}</p>}<div className="overflow-x-auto"><table className="w-full text-xs"><thead className="bg-gray-50"><tr>{['Year','Taxable income','Rate','Tax due','Paid','Balance','Due','Status',''].map(h=><th key={h} className="p-2 text-left">{h}</th>)}</tr></thead><tbody className="divide-y">{records.map(r=><tr key={r._id}><td className="p-2 font-black">{r.year}</td><td>{fmt(r.taxableIncome)}</td><td>{(r.taxRate*100).toFixed(2)}%</td><td>{fmt(r.taxDue)}</td><td>{fmt(r.amountPaid)}</td><td className="font-black">{fmt(Math.max(0,r.taxDue-r.amountPaid))}</td><td>{r.filingDueDate?new Date(r.filingDueDate).toLocaleDateString():'—'}</td><td><Bd label={r.status} v={r.status==='paid'?'green':r.status==='overdue'?'red':'yellow'}/></td><td>{canEdit&&<button onClick={()=>edit(r)} className="text-orange-700 font-bold">Edit</button>}</td></tr>)}</tbody></table></div>{form&&<Modal title="Annual company tax record" onClose={()=>setForm(null)}><form onSubmit={save} className="space-y-3">{[['year','Tax year','number'],['taxableIncome','Taxable income','number'],['taxRate','Tax rate (%)','number'],['amountPaid','Amount paid','number'],['filingDueDate','Filing due date','date'],['tin','Company TIN','text'],['filingReference','Filing reference','text']].map(([k,l,t])=><label key={k} className="block text-xs font-bold text-gray-500">{l}<input type={t} required={['year','taxableIncome','taxRate'].includes(k)} step={t==='number'?'0.01':undefined} value={form[k]||''} onChange={e=>setForm({...form,[k]:e.target.value})} className="mt-1 w-full border rounded-xl p-2.5"/></label>)}<label className="block text-xs font-bold text-gray-500">Status<select value={form.status} onChange={e=>setForm({...form,status:e.target.value})} className="mt-1 w-full border rounded-xl p-2.5 bg-white">{['draft','prepared','filed','paid','overdue'].map(x=><option key={x}>{x}</option>)}</select></label><label className="block text-xs font-bold text-gray-500">Notes<textarea value={form.notes||''} onChange={e=>setForm({...form,notes:e.target.value})} className="mt-1 w-full border rounded-xl p-2.5"/></label><button className="w-full py-3 bg-slate-900 text-white rounded-xl font-black">Save tax record</button></form></Modal>}</div>;
 }
 
 function FinView({user}) {
