@@ -1,5 +1,6 @@
 import fp from 'fastify-plugin';
 import jwt from '@fastify/jwt';
+import AppSession from '../models/AppSession.js';
 
 export default fp(async (fastify) => {
   if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
@@ -12,8 +13,16 @@ export default fp(async (fastify) => {
   fastify.decorate('authenticate', async (request, reply) => {
     try {
       await request.jwtVerify();
+      if (!request.user?.sessionId) throw new Error('Missing session');
+      const activeSession = await AppSession.exists({
+        sessionId: request.user.sessionId,
+        user: request.user.id,
+        loggedOutAt: null,
+        expiresAt: { $gt: new Date() },
+      });
+      if (!activeSession) throw new Error('Session expired');
     } catch (err) {
-      reply.code(401).send({ error: 'Unauthorized' });
+      return reply.code(401).send({ error: 'Session expired or unauthorized' });
     }
   });
 

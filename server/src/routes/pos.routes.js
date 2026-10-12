@@ -4,6 +4,7 @@ import JournalEntry from '../models/JournalEntry.js';
 import Outlet from '../models/Outlet.js';
 import Customer from '../models/Customer.js';
 import CustomerPayment from '../models/CustomerPayment.js';
+import { calculateSaleTotals, validatePayments } from '../utils/saleTotals.js';
 
 async function nextInvoiceNumber() {
   return `INV-${Date.now()}-${Math.floor(Math.random() * 100).toString().padStart(2, '0')}`;
@@ -47,16 +48,19 @@ export default async function posRoutes(fastify) {
       cost: i.product ? costById.get(String(i.product)) || 0 : 0,
     }));
 
-    const subtotalBeforeDiscount = items.reduce((s, i) => s + i.price * i.qty, 0);
-    const subtotal = Math.max(0, subtotalBeforeDiscount - Number(discount || 0));
-    const tax = +(subtotal * Number(taxRate)).toFixed(2);
-    const total = +(subtotal + tax).toFixed(2);
+    let totals;
+    try { totals = calculateSaleTotals(items, discount, taxRate); }
+    catch (error) { return reply.code(400).send({ error: error.message }); }
+    const { subtotal, tax, total } = totals;
     const normalizedPayments = payments?.length ? payments : [{ method: paymentMethod || 'Cash', amount: total }];
-    const paid = normalizedPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
-    if (Math.abs(paid - total) > 0.01) return reply.code(400).send({ error: 'Payment total must equal the sale total' });
+    try { validatePayments(normalizedPayments, total); }
+    catch (error) { return reply.code(400).send({ error: error.message }); }
     if (normalizedPayments.some(p => p.method === 'Customer Credit') && !customer) return reply.code(400).send({ error: 'Select a customer before using Customer Credit' });
     const resolvedBranch = branch || products[0]?.branch;
     const resolvedOutlet = outlet || products[0]?.outlet;
+    if (products.some(product => String(product.branch) !== String(resolvedBranch) || String(product.outlet) !== String(resolvedOutlet))) {
+      return reply.code(400).send({ error: 'All sale items must belong to the selected branch and outlet' });
+    }
     if (customer) {
       const allowedCustomer = await Customer.findOne({ _id: customer, active: { $ne: false }, ...fastify.scopeFilter(request) }).select('_id').lean();
       if (!allowedCustomer) return reply.code(404).send({ error: 'Customer not found in your assigned location' });
@@ -77,20 +81,19 @@ export default async function posRoutes(fastify) {
       total,
       paymentMethod: paymentMethod || 'Cash',
       payments: normalizedPayments,
-      discount,
-      taxRate,
+      discount: totals.discount,
+      taxRate: totals.taxRate,
       channel,
       workShift: shift,
     });
 
     // Decrement stock for items that reference a real product.
-    const stockUpdates = await Promise.all(
-      items
-        .filter((i) => i.product)
-        .map((i) => Product.findOneAndUpdate({ _id: i.product, qty: { $gte: i.qty } }, { $inc: { qty: -i.qty } }))
-    );
+    const stockLines = items.filter(item => item.product);
+    const stockUpdates = await Promise.all(stockLines.map(item =>
+      Product.findOneAndUpdate({ _id: item.product, qty: { $gte: item.qty } }, { $inc: { qty: -item.qty } })
+    ));
     if (stockUpdates.some(result => !result)) {
-      await Promise.all(stockUpdates.map((result, index) => result ? Product.findByIdAndUpdate(result._id, { $inc: { qty: items[index].qty } }) : null));
+      await Promise.all(stockUpdates.map((result, index) => result ? Product.findByIdAndUpdate(result._id, { $inc: { qty: stockLines[index].qty } }) : null));
       sale.status = 'voided';
       sale.notes = 'Automatically voided: stock changed during checkout';
       await sale.save();
@@ -100,7 +103,9 @@ export default async function posRoutes(fastify) {
     const creditAmount = normalizedPayments.filter(p => p.method === 'Customer Credit').reduce((sum, p) => sum + Number(p.amount || 0), 0);
     const settledAmount = total - creditAmount;
     const cogs = itemsWithCost.reduce((sum, i) => sum + i.cost * i.qty, 0);
-    await JournalEntry.create({
+    let journal;
+    try {
+    journal = await JournalEntry.create({
       number: `JE-${sale.invoiceNumber}`, date: sale.postedAt, description: `Sale ${sale.invoiceNumber}`,
       source: 'sale', sourceId: sale._id, branch: resolvedBranch, outlet: resolvedOutlet, createdBy: request.user.id,
       lines: [
@@ -117,6 +122,15 @@ export default async function posRoutes(fastify) {
         $inc: { balance: creditAmount, visits: 1, loyaltyPoints: Math.floor(total) },
         $set: { lastVisit: sale.postedAt },
       });
+    }
+    } catch (error) {
+      await Promise.all(stockUpdates.map((result, index) => result ? Product.findByIdAndUpdate(result._id, { $inc: { qty: stockLines[index].qty } }) : null));
+      if (journal?._id) await JournalEntry.deleteOne({ _id: journal._id });
+      sale.status = 'voided';
+      sale.notes = `Automatically voided: posting failed (${String(error.message || 'unknown error').slice(0, 160)})`;
+      await sale.save();
+      request.log.error({ err: error, saleId: sale._id }, 'Sale posting rolled back');
+      return reply.code(500).send({ error: 'Sale posting failed and stock was restored. Please retry.' });
     }
 
     return reply.code(201).send(sale);

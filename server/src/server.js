@@ -29,20 +29,36 @@ import performanceRoutes from './routes/performance.routes.js';
 import workforceRoutes from './routes/workforce.routes.js';
 import taxRoutes from './routes/tax.routes.js';
 
-const fastify = Fastify({ logger: true, bodyLimit: 25 * 1024 * 1024 });
+const fastify = Fastify({ logger: true, bodyLimit: 25 * 1024 * 1024, trustProxy: true });
 
 await connectDB(fastify.log);
 
+const defaultProductionOrigin = 'https://razmedenterprise-production.up.railway.app';
 const configuredOrigins = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(',').map(value => value.trim()).filter(Boolean)
-  : [];
+  : process.env.NODE_ENV === 'production' ? [defaultProductionOrigin] : [];
 const nativeOrigins = new Set(['capacitor://localhost', 'https://localhost', 'http://localhost']);
 await fastify.register(cors, {
   origin(origin, callback) {
     const localDevelopment = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin || '');
-    const allowed = !origin || !configuredOrigins.length || configuredOrigins.includes(origin) || nativeOrigins.has(origin) || localDevelopment;
+    const developmentFallback = process.env.NODE_ENV !== 'production' && !configuredOrigins.length;
+    const allowed = !origin || developmentFallback || configuredOrigins.includes(origin) || nativeOrigins.has(origin) || localDevelopment;
     callback(null, allowed);
   },
+});
+fastify.addHook('onSend', async (request, reply, payload) => {
+  reply
+    .header('X-Content-Type-Options', 'nosniff')
+    .header('X-Frame-Options', 'DENY')
+    .header('Referrer-Policy', 'strict-origin-when-cross-origin')
+    .header('Permissions-Policy', 'camera=(self), microphone=(), geolocation=()')
+    .header('Cross-Origin-Opener-Policy', 'same-origin')
+    .header('Cross-Origin-Resource-Policy', 'same-origin');
+  if (process.env.NODE_ENV === 'production') {
+    reply.header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    reply.header('Content-Security-Policy', "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; font-src 'self' data:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'");
+  }
+  return payload;
 });
 await fastify.register(authPlugin);
 

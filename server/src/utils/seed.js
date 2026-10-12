@@ -9,6 +9,9 @@ import Product from '../models/Product.js';
 const log = console;
 
 async function seed() {
+  if (process.env.NODE_ENV === 'production' && process.env.ALLOW_DESTRUCTIVE_SEED !== 'I_UNDERSTAND_THIS_DELETES_RAZMED_DATA') {
+    throw new Error('Production seed blocked. It deletes operational data. Use a non-production database instead.');
+  }
   await connectDB(log);
 
   // RazMed-only demonstration data. No external production records are used.

@@ -4,18 +4,42 @@ import '../models/Outlet.js';
 import AppSession from '../models/AppSession.js';
 import { randomUUID } from 'node:crypto';
 
+const loginAttempts = new Map();
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const MAX_LOGIN_ATTEMPTS = 5;
+const attemptKey = request => `${request.ip}:${String(request.body?.username || '').toLowerCase().trim()}`;
+const pruneAttempts = now => {
+  if (loginAttempts.size < 1000) return;
+  for (const [key, value] of loginAttempts) if (now - value.startedAt > LOGIN_WINDOW_MS) loginAttempts.delete(key);
+};
+
 export default async function authRoutes(fastify) {
   fastify.post('/api/auth/login', async (request, reply) => {
+    const nowMs = Date.now();
+    pruneAttempts(nowMs);
+    const key = attemptKey(request);
+    const attempt = loginAttempts.get(key);
+    if (attempt && nowMs - attempt.startedAt < LOGIN_WINDOW_MS && attempt.count >= MAX_LOGIN_ATTEMPTS) {
+      const retrySeconds = Math.ceil((LOGIN_WINDOW_MS - (nowMs - attempt.startedAt)) / 1000);
+      return reply.header('Retry-After', retrySeconds).code(429).send({ error: 'Too many sign-in attempts. Try again later.' });
+    }
     const { username, password } = request.body || {};
     if (!username || !password) {
       return reply.code(400).send({ error: 'Username and password are required' });
     }
 
     const user = await User.findOne({ username: username.toLowerCase().trim(), active: true });
-    if (!user) return reply.code(401).send({ error: 'Invalid username or password' });
+    if (!user) {
+      loginAttempts.set(key, { count: (attempt?.count || 0) + 1, startedAt: attempt?.startedAt || nowMs });
+      return reply.code(401).send({ error: 'Invalid username or password' });
+    }
 
     const ok = await bcrypt.compare(password, user.passwordHash);
-    if (!ok) return reply.code(401).send({ error: 'Invalid username or password' });
+    if (!ok) {
+      loginAttempts.set(key, { count: (attempt?.count || 0) + 1, startedAt: attempt?.startedAt || nowMs });
+      return reply.code(401).send({ error: 'Invalid username or password' });
+    }
+    loginAttempts.delete(key);
 
     const branchIds = [...new Set([user.branch, ...(user.branches || [])].filter(Boolean).map(String))];
     const outletIds = (user.outlets || []).map(String);
