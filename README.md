@@ -23,7 +23,7 @@ Fuel-station and supermarket operations are intentionally excluded.
 
 ## Local development
 
-Requirements: Node.js 18 and npm.
+Requirements: Node.js 20 or newer and npm.
 
 ```bash
 npm install
@@ -59,11 +59,13 @@ Never commit `.env`, database exports, customer/staff records, transaction expor
 
 ## Safe demo seed
 
-`npm --prefix server run seed` creates only two RazMed demonstration branches and an automotive sample catalogue. It contains no information copied from any other company. Demo usernames are `admin`, `ceo`, `gm`, `branch`, `finance`, and `staff`; each temporary password matches its username. Change every password before production use.
+`npm --prefix server run seed` creates only two RazMed demonstration branches and an automotive sample catalogue. It contains no information copied from any other company. Demo usernames are `admin`, `ceo`, `gm`, `branch`, `finance`, and `staff`; each temporary password matches its username. Change every password before production use. The destructive seed command is blocked when `NODE_ENV=production`.
 
 ## Production
 
-The included Railway configuration builds the Vite frontend and serves it from the Fastify service. Configure `MONGODB_URI`, `JWT_SECRET`, and `CORS_ORIGIN` in the deployment environment.
+The included Railway configuration builds the Vite frontend and serves it from the Fastify service. Configure `MONGODB_URI`, `JWT_SECRET`, `CORS_ORIGIN`, and `NODE_ENV=production` in the deployment environment.
+
+Production hardening release: October 2026.
 
 ## Mobile and PWA
 
